@@ -4,8 +4,8 @@ feature:
 fix:
  - head-branch: ['^fix', 'fix']
 
-test
+test:
  - head-branch: ['^test', 'test']
 
-docs
+docs:
  - head-branch: ['^docs', 'docs']
