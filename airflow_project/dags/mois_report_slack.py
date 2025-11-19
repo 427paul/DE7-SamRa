@@ -12,7 +12,8 @@ from airflow.sdk import DAG
 
 # ====== 설정 ======
 BASE_URL = "https://www.mois.go.kr"
-LIST_URL = ()
+LIST_URL = ("https://www.mois.go.kr/frt/bbs/type001/"
+            "commonSelectBoardList.do?bbsId=BBSMSTR_000000000336")
 
 # 안전한 임시 디렉토리 사용
 TMP_DIR = tempfile.gettempdir()
