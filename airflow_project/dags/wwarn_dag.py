@@ -310,15 +310,16 @@ with DAG(
     max_active_runs=1,
 ) as dag:
 
-    fetch_and_preprocess_task = PythonOperator(
+    # Task 변수명을 task_id와 일치시킴 (AIR001 해결)
+    fetch_and_preprocess = PythonOperator(
         task_id='fetch_and_preprocess',
         python_callable=fetch_and_preprocess,
     )
 
-    upload_to_s3_task = PythonOperator(
+    upload_to_s3 = PythonOperator(
         task_id='upload_to_s3',
         python_callable=upload_to_s3,
     )
 
     # Task 의존성
-    fetch_and_preprocess_task >> upload_to_s3_task
+    fetch_and_preprocess >> upload_to_s3
