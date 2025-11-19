@@ -3,10 +3,10 @@ import time
 from datetime import datetime, timedelta
 
 import requests
-from airflow import DAG
 from airflow.models.variable import Variable
-from airflow.operators.python import PythonOperator
 from airflow.providers.snowflake.hooks.snowflake import SnowflakeHook
+from airflow.providers.standard.operators.python import PythonOperator
+from airflow.sdk import DAG
 
 KR_ISO_CODES = {
     '서울': 'KR-11',
@@ -171,15 +171,15 @@ def load_to_snowflake(**context):
             so2_grade = safe_value(item.get('so2Grade'))
             so2_flag = safe_value(item.get('so2Flag'))
 
-            # 🔍 데이터 확인
+            # 데이터 확인
             if station_name is None or sido_name is None:
                 print(f"  !!! {item.get('stationName')} 건너뜀: 필수 데이터 없음 !!!")
                 continue
 
 
-            # 1) 기존 데이터 삭제 -> 트리거할 때 중복이 생길 수 있어서 중복방지용으로 사용
+# 1)기존 데이터 삭제. 트리거할 때 중복이 생길 수 있어서 중복방지용으로 사용
             hook.run("""
-                DELETE FROM samra.raw_data.air_sido_t 
+                DELETE FROM samra.raw_data.air_sido_t
                 WHERE STATION_NAME = %s AND DATA_TIME = %s
             """, parameters=(
                 station_name,
@@ -270,19 +270,19 @@ def load_to_snowflake(**context):
 
     # 최신 데이터 샘플
     sample = hook.get_records("""
-        SELECT 
+        SELECT
             STATION_NAME, SIDO_NAME, DATA_TIME,
             PM10_VALUE, PM10_GRADE,
             PM25_VALUE, PM25_GRADE
-        FROM samra.raw_data.air_sido_t 
+        FROM samra.raw_data.air_sido_t
         ORDER BY DATA_TIME DESC
         LIMIT 5
     """)
 
     print("\n최신 데이터 샘플:")
     for row in sample:
-        print(f"  - {row[0]} ({row[1]}) | {row[2]} | PM10: {row[3]}({row[4]}) PM2.5: {row[5]}({row[6]})")
-
+        print(f"  - {row[0]} ({row[1]}) | {row[2]}")
+        print(f"PM10: {row[3]}({row[4]}) (PM2.5: {row[5]}({row[6]})")
     print("\n" + "=" * 70)
     print("VV 데이터 적재 완료!")
     print("=" * 70)
@@ -309,7 +309,7 @@ def validate_data(**context):
     # 1. 지역별 데이터 개수 조회
     print("지역별 데이터 확인 중...")
     result = hook.get_records("""
-        SELECT 
+        SELECT
             SIDO_NAME,
             COUNT(*) as cnt
         FROM samra.raw_data.air_sido_t
@@ -355,7 +355,7 @@ def validate_data(**context):
 
     # 4. 전체 데이터 통계
     total = hook.get_records("""
-        SELECT 
+        SELECT
             COUNT(*) as total,
             COUNT(DISTINCT STATION_NAME) as stations,
             MIN(DATA_TIME) as min_time,
@@ -386,7 +386,8 @@ def validate_data(**context):
         # 3개 이상 누락은 실패
         print(f"XXX 검증 실패! {len(missing_regions)}개 지역 데이터 누락")
         print("=" * 70)
-        raise ValueError(f"데이터 검증 실패: {len(missing_regions)}개 지역 누락 - {', '.join(missing_regions)}")
+        raise ValueError(
+            f"검증 실패: {len(missing_regions)}개 누락 {','.join(missing_regions)}")
 
 
 # DAG 정의
@@ -404,23 +405,23 @@ with DAG(
 ) as dag:
 
     # Task 1: Extract
-    extract_task = PythonOperator(
+    extract = PythonOperator(
         task_id='extract',
         python_callable=extract_air_quality_data
     )
 
     # Task 2: Load
-    load_task = PythonOperator(
+    load = PythonOperator(
         task_id='load',
         python_callable=load_to_snowflake
     )
 
     # Task 3: Validate (선택 사항)
     # 지역별로 데이터가 들어왔는지 확인
-    validate_task = PythonOperator(
+    validate = PythonOperator(
         task_id='validate',
         python_callable=validate_data
     )
 
     # Task 의존성 설정: extract → load → validate
-    extract_task >> load_task >> validate_task
+    extract >> load >> validate
