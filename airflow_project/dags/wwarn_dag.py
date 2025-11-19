@@ -299,7 +299,7 @@ def upload_to_s3(**context):
 # DAG 및 Task 정의
 # ============================================================================
 
-with DAG(
+with DAG( # noqa: AIR311
     dag_id="kma_warning_pipeline",
     description="매 정각마다 기상청 특보현황 데이터 크롤링 및 S3 적재",
     default_args=default_args,
@@ -310,7 +310,6 @@ with DAG(
     max_active_runs=1,
 ) as dag:
 
-    # Task 변수명을 task_id와 일치시킴 (AIR001 해결)
     fetch_and_preprocess = PythonOperator(
         task_id='fetch_and_preprocess',
         python_callable=fetch_and_preprocess,
