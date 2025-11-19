@@ -16,6 +16,7 @@ jobs:
           key: ${{ secrets.SSH_PRIVATE_KEY }}
           port: 22
           
-          scripts: |
-            cd /home/ubuntu
-            echo "test done" > test.txt
+          script: |
+            cd /home/ubuntu/samra-airflow
+            git fetch
+            git pull
