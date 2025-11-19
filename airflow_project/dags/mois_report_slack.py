@@ -5,7 +5,8 @@ from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
-from airflow.models import DAG
+
+from airflow import DAG
 from airflow.providers.standard.operators.python import PythonOperator
 
 # ====== 설정 ======
@@ -20,8 +21,7 @@ TMP_DIR = tempfile.gettempdir()
 TEXT_OUTPUT_PATH = os.path.join(TMP_DIR, "latest_report.txt")
 
 SLACK_WEBHOOK_URL = (
-    "https://hooks.slack.com/services/T09SZ0BSHEU/"
-    "B09TFUJ97GD/rRx0cPQY0lgOJMshFSp6wx4r"
+
 )
 
 # ====== DAG 설정 ======
@@ -67,8 +67,14 @@ with DAG(
     # ==================================
     def download_pdf(**kwargs):
         ti = kwargs["ti"]
-        detail_url = ti.xcom_pull(key="detail_url", task_ids="crawl_latest_report")
-        file_name = ti.xcom_pull(key="file_name", task_ids="crawl_latest_report")
+        detail_url = ti.xcom_pull(
+            key="detail_url",
+            task_ids="crawl_latest_report",
+        )
+        file_name = ti.xcom_pull(
+            key="file_name",
+            task_ids="crawl_latest_report",
+        )
 
         response = requests.get(detail_url, timeout=10)
         response.raise_for_status()
@@ -79,11 +85,18 @@ with DAG(
 
         relative_path = download_link_tag["href"]
         full_download_url = urljoin(BASE_URL, relative_path)
-        modified_download_url = full_download_url.replace("fileSn=0", "fileSn=1")
+        modified_download_url = full_download_url.replace(
+            "fileSn=0",
+            "fileSn=1",
+        )
 
         download_path = os.path.join(TMP_DIR, file_name)
 
-        with requests.get(modified_download_url, stream=True, timeout=10) as r:
+        with requests.get(
+            modified_download_url,
+            stream=True,
+            timeout=10,
+        ) as r:
             r.raise_for_status()
             with open(download_path, "wb") as f:
                 for chunk in r.iter_content(chunk_size=1024):
@@ -101,7 +114,8 @@ with DAG(
 
         ti = kwargs["ti"]
         download_path = ti.xcom_pull(
-            key="download_path", task_ids="download_pdf"
+            key="download_path",
+            task_ids="download_pdf",
         )
 
         text = ""
@@ -110,7 +124,6 @@ with DAG(
             for page in reader.pages:
                 text += page.extract_text()
 
-        # 임시 PDF 파일 삭제
         os.remove(download_path)
 
         with open(TEXT_OUTPUT_PATH, "w", encoding="utf-8") as f:
@@ -122,13 +135,16 @@ with DAG(
         ti.xcom_push(key="raw_text", value=text)
 
     # ==================================
-    # 4) LangChain 기반 AI 요약 생성
+    # 4) AI 요약 생성
     # ==================================
     def run_ai_agent(**kwargs):
         from gradio_client import Client
 
         ti = kwargs["ti"]
-        text = ti.xcom_pull(key="raw_text", task_ids="extract_pdf_text")
+        text = ti.xcom_pull(
+            key="raw_text",
+            task_ids="extract_pdf_text",
+        )
 
         client = Client("amd/gpt-oss-120b-chatbot")
 
@@ -146,15 +162,22 @@ with DAG(
     # ==================================
     def send_slack(**kwargs):
         ti = kwargs["ti"]
-        summary = ti.xcom_pull(key="ai_summary", task_ids="run_ai_agent")
+        summary = ti.xcom_pull(
+            key="ai_summary",
+            task_ids="run_ai_agent",
+        )
 
-        payload = {"text": f"📌 *오늘의 안전관리상황 요약*\n```{summary}```"}
+        payload = {
+            "text": f"📌 *오늘의 안전관리상황 요약*\n```{summary}```",
+        }
 
-        requests.post(SLACK_WEBHOOK_URL, json=payload, timeout=10)
+        requests.post(
+            SLACK_WEBHOOK_URL,
+            json=payload,
+            timeout=10,
+        )
 
-    # ================
     # Operators
-    # ================
     crawl_latest_report = PythonOperator(
         task_id="crawl_latest_report",
         python_callable=crawl_latest_report,
