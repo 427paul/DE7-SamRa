@@ -7,7 +7,8 @@ import requests
 from bs4 import BeautifulSoup
 
 from airflow import DAG
-from airflow.providers.standard.operators.python import PythonOperator
+from airflow.operators.python import PythonOperator
+
 
 # ====== 설정 ======
 BASE_URL = "https://www.mois.go.kr"
@@ -168,7 +169,10 @@ with DAG(
         )
 
         payload = {
-            "text": f"📌 *오늘의 안전관리상황 요약*\n```{summary}```",
+            "text": (
+                f"📌 *오늘의 안전관리상황 요약*\n"
+                f"```{summary}```"
+            )
         }
 
         requests.post(
