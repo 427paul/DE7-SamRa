@@ -5,10 +5,8 @@ from urllib.parse import urljoin
 
 import requests
 from bs4 import BeautifulSoup
-
+from airflow.models import DAG
 from airflow.providers.standard.operators.python import PythonOperator
-from airflow.sdk import DAG
-
 
 # ====== 설정 ======
 BASE_URL = "https://www.mois.go.kr"
@@ -152,7 +150,8 @@ with DAG(
         query = (
             "다음은 일일상황보고서 내용이다.\n"
             f"{text}\n\n"
-            "위 내용에서 기상 현황과 기상 전망을 bullet 형식으로 요약해줘."
+            "위 내용에서 기상 현황과 기상 전망을 bullet 형식으로 "
+            "요약해줘."
         )
 
         output = client.predict(query)
@@ -170,7 +169,7 @@ with DAG(
 
         payload = {
             "text": (
-                f"📌 *오늘의 안전관리상황 요약*\n"
+                "📌 *오늘의 안전관리상황 요약*\n"
                 f"```{summary}```"
             )
         }
