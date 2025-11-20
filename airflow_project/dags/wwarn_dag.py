@@ -56,7 +56,7 @@ def parse_kma_format_response(response_text: str):
     return items
 
 
-@dag(  # noqa: AIR311
+@dag(
     dag_id="kma_warning_pipeline",
     schedule="0 * * * *",
     start_date=pendulum.datetime(2025, 1, 15, tz="Asia/Seoul"),
@@ -68,11 +68,11 @@ def kma_warning_pipeline():
     # 텍스트 데이터 파이프라인
     # =================================================================
 
-    @task  # noqa: AIR311
+    @task
     def extract_text():
         """특보 텍스트 API 호출"""
         url = "https://apihub.kma.go.kr/api/typ01/url/wrn_now_data.php"
-        key = Variable.get("KMA_key", default_var="RReIhJQBRsuXiISUASbLPg")  # noqa: AIR311
+        key = Variable.get("KMA_key", default_var="RReIhJQBRsuXiISUASbLPg")
         now = pendulum.now("Asia/Seoul")
         tm = now.strftime("%Y%m%d%H%M")
 
@@ -98,7 +98,7 @@ def kma_warning_pipeline():
             logging.error(f"API Request Failed: {e}")
             raise
 
-    @task  # noqa: AIR311
+    @task
     def transform_text(items):
         """텍스트 전처리"""
         if not items:
@@ -131,7 +131,7 @@ def kma_warning_pipeline():
 
         return df.to_dict("records")
 
-    @task  # noqa: AIR311
+    @task
     def load_text_to_s3(data_list, logical_date=None):
         """텍스트 데이터 CSV S3 적재"""
         if not data_list:
@@ -162,11 +162,11 @@ def kma_warning_pipeline():
     # 이미지 데이터 파이프라인
     # =================================================================
 
-    @task  # noqa: AIR311
+    @task
     def process_image(logical_date=None):
         """이미지 API 호출 및 메타데이터 생성"""
         url = "https://apihub.kma.go.kr/api/typ03/cgi/wrn/nph-wrn7"
-        key = Variable.get("KMA_key", default_var="RReIhJQBRsuXiISUASbLPg")  # noqa: AIR311
+        key = Variable.get("KMA_key", default_var="RReIhJQBRsuXiISUASbLPg")
 
         if isinstance(logical_date, str):
             now = pendulum.parse(logical_date).in_timezone("Asia/Seoul")
@@ -199,17 +199,14 @@ def kma_warning_pipeline():
 
             hook = S3Hook(aws_conn_id="s3_key")
             
-            # --- [수정됨] S3Hook의 load_bytes 대신 boto3 client 직접 사용 ---
-            # 구버전 provider 호환성을 위해 client.put_object 사용
             s3_client = hook.get_conn()
             s3_client.put_object(
                 Bucket=BUCKET_NAME,
                 Key=img_s3_key,
                 Body=response.content,
-                ContentType='image/png',          # 브라우저 이미지 인식
-                ContentDisposition='inline'       # 미리보기 설정
+                ContentType='image/png',
+                ContentDisposition='inline',
             )
-            # ---------------------------------------------------------
 
             full_image_url = (
                 f"https://{BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{img_s3_key}"
@@ -219,7 +216,7 @@ def kma_warning_pipeline():
                 {
                     "TM": tm,
                     "IMAGE_URL": full_image_url,
-                    "PROCESSED_AT": now.to_datetime_string(),
+                    "CREATED_AT": now.to_datetime_string(), 
                 }
             ]
             return meta_data
@@ -228,7 +225,7 @@ def kma_warning_pipeline():
             logging.error(f"Image process failed: {e}")
             return []
 
-    @task  # noqa: AIR311
+    @task
     def load_img_meta_to_s3(meta_data, logical_date=None):
         """이미지 메타데이터 적재"""
         if not meta_data:
@@ -262,12 +259,26 @@ def kma_warning_pipeline():
         task_id="load_text_snowflake",
         conn_id="snowflake_conn_id",
         sql=(
-            "COPY INTO SAMRA.RAW_DATA.WARNING_STATUS\n"
+            "CREATE OR REPLACE TEMPORARY TABLE SAMRA.RAW_DATA.WARNING_STATUS_TEMP "
+            "LIKE SAMRA.RAW_DATA.WARNING_STATUS;\n"
+            
+            "COPY INTO SAMRA.RAW_DATA.WARNING_STATUS_TEMP\n"
             "FROM @SAMRA.PUBLIC.WWARN_STAGE/"
             "{{ ti.xcom_pull(task_ids='load_text_to_s3') }}\n"
-            "FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER = 1 "
+            "FILE_FORMAT = (TYPE = 'CSV' PARSE_HEADER = TRUE "
             "NULL_IF = ('') ENCODING = 'UTF8')\n"
-            "FORCE = TRUE;"
+            "MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE\n"
+            "FORCE = TRUE;\n"
+            
+            "MERGE INTO SAMRA.RAW_DATA.WARNING_STATUS AS T\n"
+            "USING SAMRA.RAW_DATA.WARNING_STATUS_TEMP AS S\n"
+            "ON T.REG_ID = S.REG_ID \n"
+            "AND T.TM_FC = S.TM_FC \n"
+            "AND T.WRN = S.WRN \n"
+            "AND T.CMD = S.CMD\n"
+            "WHEN NOT MATCHED THEN\n"
+            "    INSERT (REG_UP, REG_UP_KO, REG_ID, REG_KO, TM_FC, TM_EF, WRN, LVL, CMD, ED_TM, PROCESSED_AT)\n"
+            "    VALUES (S.REG_UP, S.REG_UP_KO, S.REG_ID, S.REG_KO, S.TM_FC, S.TM_EF, S.WRN, S.LVL, S.CMD, S.ED_TM, S.PROCESSED_AT);"
         ),
         trigger_rule="all_success",
     )
@@ -279,8 +290,9 @@ def kma_warning_pipeline():
             "COPY INTO SAMRA.RAW_DATA.WARNING_IMG\n"
             "FROM @SAMRA.PUBLIC.WWARN_STAGE/"
             "{{ ti.xcom_pull(task_ids='load_img_meta_to_s3') }}\n"
-            "FILE_FORMAT = (TYPE = 'CSV' SKIP_HEADER = 1 "
+            "FILE_FORMAT = (TYPE = 'CSV' PARSE_HEADER = TRUE "
             "NULL_IF = ('') ENCODING = 'UTF8')\n"
+            "MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE\n"
             "FORCE = TRUE;"
         ),
         trigger_rule="all_success",
