@@ -5,11 +5,13 @@ from urllib.parse import urljoin
 
 import PyPDF2
 import requests
+from airflow.providers.standard.operators.python import PythonOperator
+from airflow.sdk import DAG
 from bs4 import BeautifulSoup
 from gradio_client import Client
 
-from airflow.providers.standard.operators.python import PythonOperator
-from airflow.sdk import DAG
+
+
 
 
 # ====== 설정 ======
