@@ -4,10 +4,9 @@ from datetime import datetime, timedelta
 from urllib.parse import urljoin
 
 import requests
-from bs4 import BeautifulSoup
-
 from airflow.providers.standard.operators.python import PythonOperator
 from airflow.sdk import DAG
+from bs4 import BeautifulSoup
 
 
 # ====== 설정 ======
@@ -19,7 +18,8 @@ LIST_URL = ("https://www.mois.go.kr/frt/bbs/type001/"
 TMP_DIR = tempfile.gettempdir()
 TEXT_OUTPUT_PATH = os.path.join(TMP_DIR, "latest_report.txt")
 
-SLACK_WEBHOOK_URL = ()
+SLACK_WEBHOOK_URL = ("https://hooks.slack.com/services/T09SZ0BSHEU"
+                     "/B09TFUJ97GD/rRx0cPQY0lgOJMshFSp6wx4r")
 
 # ====== DAG 설정 ======
 default_args = {
