@@ -256,7 +256,7 @@ def kma_warning_pipeline():
 
     load_text_snowflake = SQLExecuteQueryOperator(
         task_id="load_text_snowflake",
-        conn_id="samra-sf",
+        conn_id="snowflake_conn_id",
         # 암시적 문자열 연결을 사용하여 E501 회피 및 SQL 문법 유지
         sql=(
             "COPY INTO SAMRA.RAW_DATA.WARNING_STATUS\n"
@@ -271,7 +271,7 @@ def kma_warning_pipeline():
 
     load_img_snowflake = SQLExecuteQueryOperator(
         task_id="load_img_snowflake",
-        conn_id="samra-sf",
+        conn_id="snowflake_conn_id",
         # 암시적 문자열 연결을 사용하여 E501 회피 및 SQL 문법 유지
         sql=(
             "COPY INTO SAMRA.RAW_DATA.WARNING_IMG\n"
