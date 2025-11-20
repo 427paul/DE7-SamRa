@@ -46,7 +46,6 @@ def parse_kma_format_response(response_text: str):
             data_started = True
             values = [v.strip() for v in line_stripped.split(",")]
 
-            # B905: zip() without an explicit strict= parameter
             if len(values) >= len(headers):
                 item = dict(zip(headers, values[: len(headers)], strict=False))
                 items.append(item)
@@ -84,7 +83,6 @@ def kma_warning_pipeline():
             if response.status_code != 200:
                 raise ValueError(f"Text API Error: {response.status_code}")
 
-            # 인코딩 강제 지정
             response.encoding = "euc-kr"
 
             items = parse_kma_format_response(response.text)
@@ -200,12 +198,18 @@ def kma_warning_pipeline():
             img_s3_key = f"raw_data/WWARN/wwarn_images/wwarn_img_{file_ts}.png"
 
             hook = S3Hook(aws_conn_id="s3_key")
-            hook.load_bytes(
-                bytes_data=response.content,
-                key=img_s3_key,
-                bucket_name=BUCKET_NAME,
-                replace=True,
+            
+            # --- [수정됨] S3Hook의 load_bytes 대신 boto3 client 직접 사용 ---
+            # 구버전 provider 호환성을 위해 client.put_object 사용
+            s3_client = hook.get_conn()
+            s3_client.put_object(
+                Bucket=BUCKET_NAME,
+                Key=img_s3_key,
+                Body=response.content,
+                ContentType='image/png',          # 브라우저 이미지 인식
+                ContentDisposition='inline'       # 미리보기 설정
             )
+            # ---------------------------------------------------------
 
             full_image_url = (
                 f"https://{BUCKET_NAME}.s3.{AWS_REGION}.amazonaws.com/{img_s3_key}"
@@ -257,7 +261,6 @@ def kma_warning_pipeline():
     load_text_snowflake = SQLExecuteQueryOperator(
         task_id="load_text_snowflake",
         conn_id="snowflake_conn_id",
-        # 암시적 문자열 연결을 사용하여 E501 회피 및 SQL 문법 유지
         sql=(
             "COPY INTO SAMRA.RAW_DATA.WARNING_STATUS\n"
             "FROM @SAMRA.PUBLIC.WWARN_STAGE/"
@@ -272,7 +275,6 @@ def kma_warning_pipeline():
     load_img_snowflake = SQLExecuteQueryOperator(
         task_id="load_img_snowflake",
         conn_id="snowflake_conn_id",
-        # 암시적 문자열 연결을 사용하여 E501 회피 및 SQL 문법 유지
         sql=(
             "COPY INTO SAMRA.RAW_DATA.WARNING_IMG\n"
             "FROM @SAMRA.PUBLIC.WWARN_STAGE/"
