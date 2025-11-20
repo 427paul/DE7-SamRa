@@ -56,7 +56,7 @@ def parse_kma_format_response(response_text: str):
     return items
 
 
-@dag(
+@dag(  # noqa: AIR311
     dag_id="kma_warning_pipeline",
     schedule="0 * * * *",
     start_date=pendulum.datetime(2025, 1, 15, tz="Asia/Seoul"),
@@ -68,11 +68,11 @@ def kma_warning_pipeline():
     # 텍스트 데이터 파이프라인
     # =================================================================
 
-    @task
+    @task  # noqa: AIR311
     def extract_text():
         """특보 텍스트 API 호출"""
         url = "https://apihub.kma.go.kr/api/typ01/url/wrn_now_data.php"
-        key = Variable.get("KMA_key", default_var="RReIhJQBRsuXiISUASbLPg")
+        key = Variable.get("KMA_key", default_var="RReIhJQBRsuXiISUASbLPg")  # noqa: AIR311
         now = pendulum.now("Asia/Seoul")
         tm = now.strftime("%Y%m%d%H%M")
 
@@ -98,7 +98,7 @@ def kma_warning_pipeline():
             logging.error(f"API Request Failed: {e}")
             raise
 
-    @task
+    @task  # noqa: AIR311
     def transform_text(items):
         """텍스트 전처리"""
         if not items:
@@ -131,7 +131,7 @@ def kma_warning_pipeline():
 
         return df.to_dict("records")
 
-    @task
+    @task  # noqa: AIR311
     def load_text_to_s3(data_list, logical_date=None):
         """텍스트 데이터 CSV S3 적재"""
         if not data_list:
@@ -162,11 +162,11 @@ def kma_warning_pipeline():
     # 이미지 데이터 파이프라인
     # =================================================================
 
-    @task
+    @task  # noqa: AIR311
     def process_image(logical_date=None):
         """이미지 API 호출 및 메타데이터 생성"""
         url = "https://apihub.kma.go.kr/api/typ03/cgi/wrn/nph-wrn7"
-        key = Variable.get("KMA_key", default_var="RReIhJQBRsuXiISUASbLPg")
+        key = Variable.get("KMA_key", default_var="RReIhJQBRsuXiISUASbLPg")  # noqa: AIR311
 
         if isinstance(logical_date, str):
             now = pendulum.parse(logical_date).in_timezone("Asia/Seoul")
@@ -198,7 +198,7 @@ def kma_warning_pipeline():
             img_s3_key = f"raw_data/WWARN/wwarn_images/wwarn_img_{file_ts}.png"
 
             hook = S3Hook(aws_conn_id="s3_key")
-            
+
             s3_client = hook.get_conn()
             s3_client.put_object(
                 Bucket=BUCKET_NAME,
@@ -216,7 +216,7 @@ def kma_warning_pipeline():
                 {
                     "TM": tm,
                     "IMAGE_URL": full_image_url,
-                    "CREATED_AT": now.to_datetime_string(), 
+                    "CREATED_AT": now.to_datetime_string(),
                 }
             ]
             return meta_data
@@ -225,7 +225,7 @@ def kma_warning_pipeline():
             logging.error(f"Image process failed: {e}")
             return []
 
-    @task
+    @task  # noqa: AIR311
     def load_img_meta_to_s3(meta_data, logical_date=None):
         """이미지 메타데이터 적재"""
         if not meta_data:
@@ -261,7 +261,7 @@ def kma_warning_pipeline():
         sql=(
             "CREATE OR REPLACE TEMPORARY TABLE SAMRA.RAW_DATA.WARNING_STATUS_TEMP "
             "LIKE SAMRA.RAW_DATA.WARNING_STATUS;\n"
-            
+
             "COPY INTO SAMRA.RAW_DATA.WARNING_STATUS_TEMP\n"
             "FROM @SAMRA.PUBLIC.WWARN_STAGE/"
             "{{ ti.xcom_pull(task_ids='load_text_to_s3') }}\n"
@@ -269,7 +269,7 @@ def kma_warning_pipeline():
             "NULL_IF = ('') ENCODING = 'UTF8')\n"
             "MATCH_BY_COLUMN_NAME = CASE_INSENSITIVE\n"
             "FORCE = TRUE;\n"
-            
+
             "MERGE INTO SAMRA.RAW_DATA.WARNING_STATUS AS T\n"
             "USING SAMRA.RAW_DATA.WARNING_STATUS_TEMP AS S\n"
             "ON T.REG_ID = S.REG_ID \n"
@@ -277,8 +277,10 @@ def kma_warning_pipeline():
             "AND T.WRN = S.WRN \n"
             "AND T.CMD = S.CMD\n"
             "WHEN NOT MATCHED THEN\n"
-            "    INSERT (REG_UP, REG_UP_KO, REG_ID, REG_KO, TM_FC, TM_EF, WRN, LVL, CMD, ED_TM, PROCESSED_AT)\n"
-            "    VALUES (S.REG_UP, S.REG_UP_KO, S.REG_ID, S.REG_KO, S.TM_FC, S.TM_EF, S.WRN, S.LVL, S.CMD, S.ED_TM, S.PROCESSED_AT);"
+            "    INSERT (REG_UP, REG_UP_KO, REG_ID, REG_KO, TM_FC, TM_EF, WRN, LVL, "
+            "CMD, ED_TM, PROCESSED_AT)\n"
+            "    VALUES (S.REG_UP, S.REG_UP_KO, S.REG_ID, S.REG_KO, S.TM_FC, S.TM_EF, "
+            "S.WRN, S.LVL, S.CMD, S.ED_TM, S.PROCESSED_AT);"
         ),
         trigger_rule="all_success",
     )
