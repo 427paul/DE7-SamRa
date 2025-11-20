@@ -4,12 +4,14 @@ from datetime import datetime, timedelta
 from urllib.parse import urljoin
 
 import requests
-from airflow.providers.standard.operators.python import PythonOperator
 from airflow.sdk import DAG
+from airflow.providers.standard.operators.python import PythonOperator
 from bs4 import BeautifulSoup
 
 
+
 # ====== 설정 ======
+
 BASE_URL = "https://www.mois.go.kr"
 LIST_URL = ("https://www.mois.go.kr/frt/bbs/type001/"
             "commonSelectBoardList.do?bbsId=BBSMSTR_000000000336")
