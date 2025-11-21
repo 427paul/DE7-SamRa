@@ -2,13 +2,16 @@
 
 > End-to-End 데이터 파이프라인 실습을 위해 날씨 도메인의 데이터를 데이터 파이프라인(Airflow, Docker)을 통해 분석하고 시각화(Superset)해본다.
 
-## 💡 개요 (Overview)
+## 💡 프로젝트 개요 (Overview)
 
 본 프로젝트는 날씨 데이터를 Airflow를 활용해 데이터 추출(Extract), 정제(Transform), 적재(Load) 작업을 스케줄링하고, 적재된 데이터를 Superset에서 시각화하여 사용자에게 직관적인 기상 분석 환경을 제공한다.
 
 또한 주요 기상 변화나 예보 등을 Slack 알림으로 전달하여 신속한 정보 확인이 가능하도록 설계하였다.
 
-## 프로젝트 구성도
+## 🏗️ 프로젝트 아키텍쳐 구조
+<img width="1383" height="785" alt="Image" src="https://github.com/user-attachments/assets/dc649355-3302-4227-a298-39a4aa03b09e" />
+
+## 📁 파일 및 폴더 구조
 ```text
 .
 ├── .github/                       # GitHub Actions (CI/CD) 및 템플릿 관련 파일
@@ -65,4 +68,6 @@
 
 ## ⚙️ 시작하기 (Getting Started)
 
-[initial-setup.md](https://github.com/DE7-SamRa/samra-airflow/blob/main/initial-setup.md)를 참고하여 로컬에 설치
+1. [initial-setup.md](https://github.com/DE7-SamRa/samra-airflow/blob/main/initial-setup.md) 를 참고하여 로컬에 설치
+
+2. [Superset](https://github.com/DE7-SamRa/samra-superset) 레포지토리를 참고하여 Superset 구성
